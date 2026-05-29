@@ -11,6 +11,9 @@ dist/
 # Runtime data (contains password hashes and save data)
 accounts.json
 
+# Audio files (large binaries)
+*.mp3
+
 # Virtual environments
 venv/
 .venv/
