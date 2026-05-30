@@ -132,7 +132,7 @@ class Level:
             enemy.update(player, enemy_projectiles, self.platforms)
         self._lava_tick += 1
         self.pickup_timer += 1
-        if self.pickup_timer >= 720:
+        if self.pickup_timer >= 360:
             platform = random.choice(self.platforms)
             x = random.randint(platform.left + 20, platform.right - 20)
             y = platform.top - 40
@@ -305,6 +305,7 @@ class Game:
         self.in_lobby       = False
         self.lobby          = LobbyScreen()
         self.speedrun_timer = 0    # frames remaining; 0 = inactive
+        self.timed_out      = False
         self.on_second_run  = False
         self.lobby_reached  = False
         self._item_banner   = None     # (name, desc, frames_remaining) or None
@@ -1005,7 +1006,8 @@ class Game:
         if self.speedrun_timer > 0:
             self.speedrun_timer -= 1
             if self.speedrun_timer == 0:
-                self.game_over = True   # time's up!
+                self.timed_out = True
+                self.game_over = True
         if self._item_banner:
             n, d, t = self._item_banner
             self._item_banner = (n, d, t - 1) if t > 1 else None
@@ -1282,9 +1284,9 @@ class Game:
             return
 
         if self.game_over:
-            msg = "Time's Up!" if not self.speedrun_timer else "Game Over"
+            msg = "Time's Up!" if self.timed_out else "Game Over"
             draw_text(surface, msg, 48, SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 30, COLORS["text"])
-            draw_text(surface, "Press R to restart", 24, SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 30, COLORS["text"])
+            draw_text(surface, "T - Retry level   R - Restart from level 1", 22, SCREEN_WIDTH // 2 - 195, SCREEN_HEIGHT // 2 + 30, COLORS["text"])
         elif self.victory:
             if self.on_second_run:
                 msg = "All 14 Levels Cleared!"
@@ -1352,6 +1354,12 @@ class Game:
                 if self.player.grenades > 0:
                     _sounds.play("throw_grenade")
                 self.player.throw_grenade(self.grenades)
+            if event.key == pygame.K_t:
+                if self.game_over:
+                    self.game_over = False
+                    self.timed_out = False
+                    self.load_level(self.current_index)
+                    _play_music(f"music_{self.current_index}")
             if event.key == pygame.K_r:
                 if (self.game_over or self.victory) and self.lobby_reached:
                     self.game_over      = False
@@ -1362,11 +1370,18 @@ class Game:
                     self.lobby          = LobbyScreen()
                     _play_music("music_lobby")
                 else:
+                    _auth_done    = self.auth_done
+                    _current_user = self.current_user
+                    _tutorial_done = self.tutorial_done
                     try:
                         os.remove(_SAVE_PATH)
                     except OSError:
                         pass
                     self.__init__()
+                    self.auth_done     = _auth_done
+                    self.current_user  = _current_user
+                    self.tutorial_done = _tutorial_done
+                    self._load_state()
 
 
 def main():
