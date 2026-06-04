@@ -12,12 +12,12 @@ JUMP_SPEED = -15
 BULLET_SPEED = 12
 ENEMY_BULLET_SPEED = 4
 PLAYER_MAX_HEALTH = 12
-LEVEL_COUNT = 14
-FIRST_RUN_LEVELS = 7   # lobby triggers after this many levels
+LEVEL_COUNT = 7
+FIRST_RUN_LEVELS = 7
 
 COLORS = {
-    "bg": (12, 28, 12),
-    "platform": (65, 88, 45),
+    "bg": (18, 24, 45),
+    "platform": (88, 109, 167),
     "player": (220, 200, 90),
     "enemy": (220, 90, 90),
     "shooter": (180, 120, 220),

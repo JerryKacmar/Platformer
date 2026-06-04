@@ -664,7 +664,7 @@ class Game:
                 pygame.draw.line(bg, (255, 90, 0),
                                  (lx, ly),
                                  (lx + rng.randint(-70, 70), ly + 70), 5)
-            platform_color = (50, 14, 8)
+            platform_color = (200, 155, 90)
 
         elif level_index == 11:  # ── Mushroom Forest ──────────────────────
             sky((4, 7, 4), (10, 16, 8))
@@ -1074,7 +1074,7 @@ class Game:
         self._in_spikes = now_in_spikes
 
         # Lava / swamp / floor hazards — player only (enemies are immune to traps)
-        in_lava  = any(self.player.rect.colliderect(p) for p in self.level.lava_pools)
+        in_lava  = any(self.player.rect.colliderect(p.inflate(-10, -4)) for p in self.level.lava_pools)
         in_swamp = (self.level.lava_y is not None and
                     self.player.rect.bottom >= self.level.lava_y)
         now_in_lava_hazard = in_lava or in_swamp
@@ -1286,7 +1286,7 @@ class Game:
         if self.game_over:
             msg = "Time's Up!" if self.timed_out else "Game Over"
             draw_text(surface, msg, 48, SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 30, COLORS["text"])
-            draw_text(surface, "T - Retry level   R - Restart from level 1", 22, SCREEN_WIDTH // 2 - 195, SCREEN_HEIGHT // 2 + 30, COLORS["text"])
+            draw_text(surface, "R - Restart from level 1", 22, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 30, COLORS["text"])
         elif self.victory:
             if self.on_second_run:
                 msg = "All 14 Levels Cleared!"
@@ -1354,12 +1354,12 @@ class Game:
                 if self.player.grenades > 0:
                     _sounds.play("throw_grenade")
                 self.player.throw_grenade(self.grenades)
-            if event.key == pygame.K_t:
-                if self.game_over:
-                    self.game_over = False
-                    self.timed_out = False
-                    self.load_level(self.current_index)
-                    _play_music(f"music_{self.current_index}")
+            # if event.key == pygame.K_t:
+            #     if self.game_over:
+            #         self.game_over = False
+            #         self.timed_out = False
+            #         self.load_level(self.current_index)
+            #         _play_music(f"music_{self.current_index}")
             if event.key == pygame.K_r:
                 if (self.game_over or self.victory) and self.lobby_reached:
                     self.game_over      = False
@@ -1385,16 +1385,38 @@ class Game:
 
 
 def main():
+    global screen
     game = Game()
+    game_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    fullscreen = False
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                fullscreen = not fullscreen
+                if fullscreen:
+                    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                else:
+                    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
             game.handle_event(event)
 
         game.update()
-        game.draw(screen)
+        game.draw(game_surface)
+
+        if fullscreen:
+            sw, sh = screen.get_size()
+            scale = min(sw / SCREEN_WIDTH, sh / SCREEN_HEIGHT)
+            scaled_w = int(SCREEN_WIDTH * scale)
+            scaled_h = int(SCREEN_HEIGHT * scale)
+            scaled = pygame.transform.scale(game_surface, (scaled_w, scaled_h))
+            screen.fill((0, 0, 0))
+            screen.blit(scaled, ((sw - scaled_w) // 2, (sh - scaled_h) // 2))
+        else:
+            screen.blit(game_surface, (0, 0))
+
         pygame.display.flip()
         clock.tick(FPS)
 
