@@ -1174,7 +1174,7 @@ class Game:
             # Global high-score: only signed-in users set the record.
             cleared_num = self.display_level_num if self.in_endless_mode else self.level.number
             if self.current_user and submit_highscore(self.current_user, cleared_num):
-                self.highscore = {"best_level": cleared_num, "best_user": self.current_user}
+                self.highscore = load_highscore()
 
             if self.in_endless_mode:
                 self.load_procedural_level()
@@ -1331,8 +1331,9 @@ class Game:
         if self.game_over:
             msg = "Time's Up!" if self.timed_out else "Game Over"
             draw_text(surface, msg, 48, SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 30, COLORS["text"])
-            draw_text(surface, "R - Restart from level 1", 22, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 30, COLORS["text"])
-            self._draw_record(surface, SCREEN_HEIGHT // 2 + 65)
+            draw_text(surface, "R - Restart from level 1", 22, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 25, COLORS["text"])
+            draw_text(surface, "M - Main Menu", 22, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 50, COLORS["text"])
+            self._draw_record(surface, SCREEN_HEIGHT // 2 + 80)
         elif self.victory:
             if self.on_second_run:
                 msg = "All 14 Levels Cleared!"
@@ -1418,6 +1419,11 @@ class Game:
             #         self.timed_out = False
             #         self.load_level(self.current_index)
             #         _play_music(f"music_{self.current_index}")
+            if event.key == pygame.K_m:
+                if self.game_over:
+                    _stop_music()
+                    self.__init__()   # fresh state → AuthScreen (main menu)
+                    return
             if event.key == pygame.K_c:
                 if self.victory and self.on_second_run and not self.in_endless_mode:
                     self.victory          = False

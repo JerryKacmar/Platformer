@@ -12,6 +12,7 @@ A 2D platformer game built with Pygame where you defeat enemies, collect weapons
 - **G**: Throw a grenade
 - **P** or **ESC**: Pause / resume
 - **R**: Restart (when game over or victory)
+- **M**: Return to the main menu (on the game over screen)
 - **C**: Continue into Endless Mode (on the final victory screen)
 
 ### Objective
@@ -118,12 +119,12 @@ After you clear all 14 campaign levels, the victory screen offers **Press C to c
 
 Difficulty rises every level: enemy count grows from 4 up to a cap of 12, and the mix shifts toward minibosses and (eventually) bosses. You play as **Apex**, the strongest character, for the whole endless run. Levels are numbered 15, 16, 17, … and shown as `Level N (Endless)`.
 
-## High Score (Farthest Level)
+## High Scores (Farthest Level)
 
-The game tracks a single **global record**: the farthest level any **signed-in** account has cleared, attributed to that user (e.g. `Record: Level 22 by Alice`). It is shown on the title screen, the lobby, and the game over / victory screens.
+The game tracks the farthest level reached **per registered user**. The title screen shows a **High Scores** leaderboard listing each account and its best level, sorted highest first (e.g. `1. Alice — Level 22`). The lobby and game over / victory screens show the single overall record.
 
-- Only signed-in users can set the record (play via **Sign In** / **Log In**, not Guest).
-- The record is stored in `highscore.json` and persists across restarts and a full reset — it is independent of any single account's save data.
+- Only signed-in users are tracked (play via **Sign In** / **Log In**, not Guest).
+- Each user's best level is stored in their account (`accounts.json`) and persists across restarts and the in-game reset.
 
 ## Running the Game
 

@@ -1,7 +1,7 @@
 # ADR-0001: Endless Mode (Procedural Levels) and Global High Score
 
 **Date:** 2026-06-07
-**Status:** Accepted
+**Status:** Accepted (high-score scope amended — see Update below)
 
 ## Context
 The campaign ended at level 14 with a dead-end victory screen, giving players no reason to keep playing once they finished. We wanted (a) endless replayability after the campaign and (b) a way to track and compare how far players get.
@@ -31,3 +31,6 @@ The high score is global and user-attributed, stored in a dedicated `highscore.j
 - **Easier:** Infinite content with one small, dependency-free module; layouts are always completable by construction; the record survives the guest-save reset because it is a separate file.
 - **Harder/limited:** Layouts are somewhat formulaic (three tiers) rather than organic. Guests cannot set the record by design. The global record is a single entry, not a multi-row leaderboard.
 - **Watch out for:** `biome_override` must be passed for endless levels (level number is fixed at 14 internally while the displayed number is `15 + procedural_count`); enemy y-placement assumes the ground top at y=580 and the enemy heights in `_ENEMY_HEIGHTS`, which must stay in sync with `entities/enemy.py`.
+
+## Update (high-score scope superseded)
+The original single global record (`highscore.json`) was replaced with **per-registered-user** high scores. Each account's best level is stored under its record in `accounts.json`; the title screen shows a leaderboard of all users via `load_leaderboard()`, while `load_highscore()` now derives the overall top from that leaderboard so the lobby/end screens are unchanged. `highscore.json` is no longer used. Rationale: the user wanted the main screen to show the maximum level reached per user, and `accounts.json` is the natural store for per-registered-user data (guests still excluded; survives the in-game reset).

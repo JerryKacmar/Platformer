@@ -5,7 +5,6 @@ import pygame
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FONT_NAME
 
 ACCOUNTS_PATH = os.path.join(os.path.dirname(__file__), "accounts.json")
-HIGHSCORE_PATH = os.path.join(os.path.dirname(__file__), "highscore.json")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,31 +33,35 @@ def write_user_save(username, save_data):
         accounts[username]["save"] = save_data
         save_accounts(accounts)
 
-# ── Global high score ──────────────────────────────────────────────────────────
-# A single shared record of the farthest level any signed-in user has cleared.
-# Stored in its own file so it survives the guest-save reset, and is independent
-# of any individual account's progress.
-
-def load_highscore():
-    """Return {'best_level': int, 'best_user': str}; defaults if no record yet."""
-    try:
-        with open(HIGHSCORE_PATH) as f:
-            data = json.load(f)
-        return {"best_level": data.get("best_level", 0),
-                "best_user":  data.get("best_user", "")}
-    except (OSError, json.JSONDecodeError):
-        return {"best_level": 0, "best_user": ""}
+# ── High scores ────────────────────────────────────────────────────────────────
+# The farthest level reached is tracked per registered user, stored under each
+# account in accounts.json. Guests have no account, so they are excluded. This
+# survives the R-key reset (which only deletes the guest save.json).
 
 def submit_highscore(username, level):
-    """Update the global record if `level` beats it. Returns True if updated."""
-    if load_highscore()["best_level"] >= level:
+    """Record `level` as the user's best if it beats their previous. Returns True if updated."""
+    accounts = load_accounts()
+    if username not in accounts:
+        return False                      # guests / unknown users excluded
+    if level <= accounts[username].get("best_level", 0):
         return False
-    try:
-        with open(HIGHSCORE_PATH, "w") as f:
-            json.dump({"best_level": level, "best_user": username}, f, indent=2)
-    except OSError:
-        return False
+    accounts[username]["best_level"] = level
+    save_accounts(accounts)
     return True
+
+def load_leaderboard():
+    """Return [(username, best_level), ...] with best_level > 0, sorted high→low."""
+    board = [(u, a.get("best_level", 0)) for u, a in load_accounts().items()]
+    board = [(u, lvl) for u, lvl in board if lvl > 0]
+    board.sort(key=lambda e: e[1], reverse=True)
+    return board
+
+def load_highscore():
+    """Overall top record, derived from the leaderboard (used by lobby/end screens)."""
+    board = load_leaderboard()
+    if board:
+        return {"best_level": board[0][1], "best_user": board[0][0]}
+    return {"best_level": 0, "best_user": ""}
 
 # ── Auth screen ───────────────────────────────────────────────────────────────
 
@@ -202,9 +205,11 @@ class AuthScreen:
             btn(bx+bw+gap,   "[S]  Sign In  (new)",   "Create account — saves online", _B)
             btn(bx+2*(bw+gap),"[L]  Log In",           "Load existing account",        _P)
 
-            hs = load_highscore()
-            if hs["best_level"]:
-                ct(hf, f"Record: Level {hs['best_level']} by {hs['best_user']}", _Y, 320)
+            board = load_leaderboard()
+            if board:
+                ct(hf, "— High Scores —", _Y, 296)
+                for i, (u, lvl) in enumerate(board[:6]):
+                    ct(sf, f"{i+1}.  {u}  —  Level {lvl}", _W, 330 + i * 24)
 
             ct(sf, "G — Guest      S — Sign In      L — Log In", _D, H - 38)
 
