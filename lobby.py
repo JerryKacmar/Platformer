@@ -65,7 +65,7 @@ class LobbyScreen:
         if self.flash_tick > 0:
             self.flash_tick -= 1
 
-    def draw(self, surface, coins, purchased):
+    def draw(self, surface, coins, purchased, highscore=None):
         surface.fill((8, 10, 30))
 
         title_f  = pygame.font.Font(FONT_NAME, 36)
@@ -140,3 +140,10 @@ class LobbyScreen:
         # Page counter placeholder
         s = small_f.render("LOBBY", True, (60, 60, 90))
         surface.blit(s, (SCREEN_WIDTH - s.get_width() - 16, SCREEN_HEIGHT - 24))
+
+        # Global high-score record (farthest level by any signed-in user)
+        if highscore and highscore.get("best_level"):
+            rec = f"Record: Level {highscore['best_level']} by {highscore['best_user']}"
+        else:
+            rec = "Record: none yet"
+        surface.blit(small_f.render(rec, True, _Y), (16, SCREEN_HEIGHT - 24))

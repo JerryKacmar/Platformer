@@ -18,7 +18,7 @@ from entities.health_pickup import HealthPickup
 from levels.level_data import LEVEL_DEFINITIONS
 from tutorial import TutorialScreen
 from lobby import LobbyScreen, UPGRADES
-from auth import AuthScreen, load_user_save, write_user_save
+from auth import AuthScreen, load_user_save, write_user_save, load_highscore, submit_highscore
 import sounds as _sounds
 from sounds import play_music as _play_music, stop_music as _stop_music
 
@@ -38,9 +38,10 @@ def draw_text(surface, text, size, x, y, color):
 
 
 class Level:
-    def __init__(self, number, definition):
+    def __init__(self, number, definition, biome_override=None):
         self.number = number
-        self.biome = number - 1           # 0-13 across both runs
+        # 0-13 across both runs; endless mode passes an explicit biome.
+        self.biome = biome_override if biome_override is not None else number - 1
         self.platforms = [pygame.Rect(*rect) for rect in definition["platforms"]]
         self.enemies = pygame.sprite.Group()
         self.pickups = pygame.sprite.Group()
@@ -309,6 +310,11 @@ class Game:
         self.on_second_run  = False
         self.lobby_reached  = False
         self._item_banner   = None     # (name, desc, frames_remaining) or None
+        # Endless mode (procedurally generated levels 15+)
+        self.in_endless_mode   = False
+        self.procedural_count  = 0     # completed endless levels (0-based)
+        self.display_level_num = None  # overrides level text when set
+        self.highscore = load_highscore()   # global {'best_level', 'best_user'}
         self._load_state()         # restore lobby / coins / upgrades if saved
 
     @staticmethod
@@ -755,7 +761,8 @@ class Game:
         return bg, platform_color
 
     def reset_player(self):
-        self.player = CHARACTERS[self.current_index](80, 520)
+        char_idx = min(self.current_index, len(CHARACTERS) - 1)
+        self.player = CHARACTERS[char_idx](80, 520)
         self.enemy_projectiles.empty()
         # Apply permanent shop upgrades
         if self.upgrades.get("hp"):
@@ -828,6 +835,7 @@ class Game:
                     data = json.load(f)
             except (OSError, json.JSONDecodeError):
                 return
+        self.highscore = load_highscore()   # refresh global record on (re)load
         try:
             self._apply_save(data)
         except (KeyError, TypeError):
@@ -990,6 +998,33 @@ class Game:
         self.player.weapon   = prev_weapon
         self.player.ammo     = prev_ammo
 
+    def load_procedural_level(self):
+        from levels.procedural import generate_level
+        prev_weapon = self.player.weapon
+        prev_ammo   = dict(self.player.ammo)
+
+        biome      = random.randint(0, 13)
+        difficulty = self.procedural_count
+        definition = generate_level(difficulty, biome)
+
+        self.current_index     = 13                          # stay on Apex character
+        self.display_level_num = 15 + self.procedural_count  # Level 15, 16, 17...
+        self.procedural_count += 1
+
+        self.level = Level(14, definition, biome_override=biome)
+        self._bg, self._platform_color = self._build_background(biome)
+        if self.tutorial_done and not self.in_lobby:
+            _play_music(f"music_{biome}")
+
+        self.grenades.empty()
+        self.biome_items.empty()
+        self.biome_items.add(BiomeItem(biome, *self._ITEM_XY[biome]))
+
+        self.reset_player()
+        self.player.grenades = 3
+        self.player.weapon   = prev_weapon
+        self.player.ammo     = prev_ammo
+
     def update(self):
         if not self.auth_done:
             self.auth_screen.update()
@@ -1135,7 +1170,15 @@ class Game:
             _sounds.play("coin")
             _sounds.play("level_complete")
             idx = self.current_index
-            if idx == FIRST_RUN_LEVELS - 1 and self.speedrun_timer == 0 and not self.on_second_run:
+
+            # Global high-score: only signed-in users set the record.
+            cleared_num = self.display_level_num if self.in_endless_mode else self.level.number
+            if self.current_user and submit_highscore(self.current_user, cleared_num):
+                self.highscore = {"best_level": cleared_num, "best_user": self.current_user}
+
+            if self.in_endless_mode:
+                self.load_procedural_level()
+            elif idx == FIRST_RUN_LEVELS - 1 and self.speedrun_timer == 0 and not self.on_second_run:
                 # First completion of levels 1-7 → lobby
                 self.coins += 30     # lobby bonus (on top of the 5)
                 self.lobby_reached = True
@@ -1162,7 +1205,9 @@ class Game:
         health_text = f"Health: {self.player.health}/{self.player.max_health}"
         weapon_text = f"Weapon: {self.player.weapon.title()}"
         ammo_text = f"Ammo: {self.player.ammo[self.player.weapon]}"
-        if self.on_second_run:
+        if self.in_endless_mode:
+            level_text = f"Level {self.display_level_num}  (Endless)"
+        elif self.on_second_run:
             run_lvl = self.level.number - FIRST_RUN_LEVELS
             level_text = f"Level {run_lvl}/7  (Run 2)"
         elif self.speedrun_timer > 0:
@@ -1225,7 +1270,7 @@ class Game:
             return
 
         if self.in_lobby:
-            self.lobby.draw(surface, self.coins, self.upgrades)
+            self.lobby.draw(surface, self.coins, self.upgrades, self.highscore)
             return
         
         self.level.draw(surface, self._platform_color)
@@ -1287,6 +1332,7 @@ class Game:
             msg = "Time's Up!" if self.timed_out else "Game Over"
             draw_text(surface, msg, 48, SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 30, COLORS["text"])
             draw_text(surface, "R - Restart from level 1", 22, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 30, COLORS["text"])
+            self._draw_record(surface, SCREEN_HEIGHT // 2 + 65)
         elif self.victory:
             if self.on_second_run:
                 msg = "All 14 Levels Cleared!"
@@ -1294,8 +1340,20 @@ class Game:
                 secs = (14400 - self.speedrun_timer) // 60 if self.speedrun_timer == 0 else 0
                 m, s = divmod(secs, 60) if secs else (0, 0)
                 msg = f"Speedrun Complete!  {m}:{s:02d}" if not self.on_second_run else "Victory!"
-            draw_text(surface, msg, 38, SCREEN_WIDTH // 2 - 240, SCREEN_HEIGHT // 2 - 20, COLORS["text"])
-            draw_text(surface, "Press R to play again", 24, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 40, COLORS["text"])
+            draw_text(surface, msg, 38, SCREEN_WIDTH // 2 - 240, SCREEN_HEIGHT // 2 - 40, COLORS["text"])
+            draw_text(surface, "Press R to play again", 24, SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 + 10, COLORS["text"])
+            if self.on_second_run and not self.in_endless_mode:
+                draw_text(surface, "Press C to continue in Endless Mode", 22,
+                          SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 + 45, (100, 220, 140))
+            self._draw_record(surface, SCREEN_HEIGHT // 2 + 80)
+
+    def _draw_record(self, surface, y):
+        hs = self.highscore
+        if hs["best_level"]:
+            record = f"Record: Level {hs['best_level']} by {hs['best_user']}"
+        else:
+            record = "Record: none yet"
+        draw_text(surface, record, 22, SCREEN_WIDTH // 2 - 130, y, (255, 215, 90))
 
     def handle_event(self, event):
         if not self.auth_done:
@@ -1360,6 +1418,13 @@ class Game:
             #         self.timed_out = False
             #         self.load_level(self.current_index)
             #         _play_music(f"music_{self.current_index}")
+            if event.key == pygame.K_c:
+                if self.victory and self.on_second_run and not self.in_endless_mode:
+                    self.victory          = False
+                    self.in_endless_mode  = True
+                    self.procedural_count = 0
+                    self.load_procedural_level()
+                    _play_music(f"music_{self.level.biome}")
             if event.key == pygame.K_r:
                 if (self.game_over or self.victory) and self.lobby_reached:
                     self.game_over      = False
@@ -1367,6 +1432,9 @@ class Game:
                     self.in_lobby       = True
                     self.speedrun_timer = 0
                     self.on_second_run  = False
+                    self.in_endless_mode   = False
+                    self.procedural_count  = 0
+                    self.display_level_num = None
                     self.lobby          = LobbyScreen()
                     _play_music("music_lobby")
                 else:

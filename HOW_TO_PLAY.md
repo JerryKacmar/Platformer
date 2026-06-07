@@ -9,7 +9,10 @@ A 2D platformer game built with Pygame where you defeat enemies, collect weapons
 - **Arrow Keys** or **A/D**: Move left and right
 - **Up Arrow**, **W**, or **Space**: Jump
 - **Z**: Shoot your weapon
-- **R**: Restart level (when game over)
+- **G**: Throw a grenade
+- **P** or **ESC**: Pause / resume
+- **R**: Restart (when game over or victory)
+- **C**: Continue into Endless Mode (on the final victory screen)
 
 ### Objective
 
@@ -104,6 +107,24 @@ Each enemy type cycles through a fixed sequence of attacks. Understanding the pa
 
 7. **Portal Puzzle**: The portal doesn't appear until ALL enemies are defeated. Make sure you've cleared the level before searching for it.
 
+## Endless Mode (Levels 15+)
+
+After you clear all 14 campaign levels, the victory screen offers **Press C to continue in Endless Mode**. Endless Mode generates an unlimited series of procedurally created levels:
+
+- **Random biome** each level (any of the 14 existing themes, with its hazards and background)
+- **Random platform layout** — three tiered, jump-reachable height zones
+- **Random enemies** — composition scales with difficulty (more enemies, then minibosses, then bosses)
+- **Random weapon pickups** placed on the platforms
+
+Difficulty rises every level: enemy count grows from 4 up to a cap of 12, and the mix shifts toward minibosses and (eventually) bosses. You play as **Apex**, the strongest character, for the whole endless run. Levels are numbered 15, 16, 17, … and shown as `Level N (Endless)`.
+
+## High Score (Farthest Level)
+
+The game tracks a single **global record**: the farthest level any **signed-in** account has cleared, attributed to that user (e.g. `Record: Level 22 by Alice`). It is shown on the title screen, the lobby, and the game over / victory screens.
+
+- Only signed-in users can set the record (play via **Sign In** / **Log In**, not Guest).
+- The record is stored in `highscore.json` and persists across restarts and a full reset — it is independent of any single account's save data.
+
 ## Running the Game
 
 ### Requirements
@@ -159,10 +180,8 @@ Game1/
 - Custom sprite artwork to replace placeholders
 - Sound effects and background music
 - Additional weapon types
-- Power-ups (temporary shields, rapid fire, etc.)
 - Secret collectibles
 - Difficulty settings
-- High score system
 
 ## Troubleshooting
 
